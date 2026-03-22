@@ -1,0 +1,36 @@
+# CMake and build directories
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Compiler and linker outputs
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# Generated LLVM and assembly artifacts
+*.ll
+*.bc
+*.s
+
+# Local generated binaries
+a
+arith
+cond
+funcs
+minicc
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
