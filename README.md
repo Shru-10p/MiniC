@@ -1,7 +1,6 @@
-# minicc — A Tiny C-Like Compiler via LLVM
+# minicc
 
-A minimal compiler for **MiniC**, a small C-like language, built as a
-learning project.  The compiler translates MiniC source into **LLVM IR**,
+A minimal compiler for **MiniC**, a small C-like language. The compiler translates MiniC source into **LLVM IR**,
 which you then feed to `clang` or `llc` to get a native binary.
 
 ```None
@@ -58,25 +57,11 @@ func main() {
 
 ### Install LLVM
 
-#### macOS (Homebrew)
-
-```bash
-brew install llvm
-# Tell CMake where to find it:
-export LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm
-```
-
 #### Ubuntu / Debian
 
 ```bash
 sudo apt install llvm-18-dev  # or llvm-15-dev, llvm-16-dev, llvm-17-dev
 # CMake usually finds it automatically via llvm-config-18
-```
-
-#### Fedora / RHEL
-
-```bash
-sudo dnf install llvm-devel
 ```
 
 ## Build
@@ -175,13 +160,13 @@ Recursive-descent parser with layered precedence functions:
 
 ```None
 parseExpr
-└──> parseOrExpr
-        └──> parseAndExpr
-                └──> parseCmpExpr
-                        └──> parseAddExpr
-                                └──> parseMulExpr
-                                        └──> parseUnary
-                                                └──> parsePrimary
+   └──> parseOrExpr
+           └──> parseAndExpr
+                   └──> parseCmpExpr
+                           └──> parseAddExpr
+                                   └──> parseMulExpr
+                                           └──> parseUnary
+                                                   └──> parsePrimary
 ```
 
 Produces a tree of `Expr` and `Stmt` nodes (defined in `ast.hpp`).
