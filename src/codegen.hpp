@@ -41,10 +41,10 @@ private:
     std::unique_ptr<llvm::Module> module_;
     llvm::IRBuilder<> builder_;
 
-    // Function table: name → LLVM Function*
+    // Function table: name --> LLVM Function*
     std::unordered_map<std::string, llvm::Function*> funcTable_;
 
-    // Variable table (per-function scope): name → alloca slot
+    // Variable table (per-function scope): name --> alloca slot
     std::unordered_map<std::string, llvm::AllocaInst*> varTable_;
 
     // printf function pointer (declared once, reused by print stmts)

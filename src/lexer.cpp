@@ -8,6 +8,7 @@ static const std::unordered_map<std::string, TK> KEYWORDS = {
     {"if", TK::KW_IF},
     {"else", TK::KW_ELSE},
     {"while", TK::KW_WHILE},
+    {"for", TK::KW_FOR},
     {"return", TK::KW_RETURN},
     {"print", TK::KW_PRINT},
 };

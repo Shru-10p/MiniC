@@ -57,12 +57,19 @@ FuncDef Parser::parseFuncDef() {
 std::vector<StmtPtr> Parser::parseBlock() {
     expect(TK::LBRACE, "Expected '{'");
     std::vector<StmtPtr> stmts;
-    while (!check(TK::RBRACE) && !check(TK::END))
-        stmts.push_back(parseStmt());
+    while (!check(TK::RBRACE) && !check(TK::END)) {
+        if (check(TK::KW_FOR)) {
+            // for desugars into multiple stmts (init + while); splice them in
+            auto forStmts = parseForStmt();
+            for (auto& s : forStmts)
+                stmts.push_back(std::move(s));
+        } else {
+            stmts.push_back(parseStmt());
+        }
+    }
     expect(TK::RBRACE, "Expected '}'");
     return stmts;
 }
-
 
 StmtPtr Parser::parseStmt() {
     int ln = peek().line;
@@ -123,6 +130,53 @@ StmtPtr Parser::parseWhileStmt() {
     return makeWhile(std::move(cond), std::move(body), ln);
 }
 
+std::vector<StmtPtr> Parser::parseForStmt() {   // desugar 'for' into 'while'
+    int ln = peek().line;
+    advance(); // consume 'for'
+    expect(TK::LPAREN, "Expected '(' after 'for'");
+
+    // init clause (var decl or assignment, includes its ';')
+    StmtPtr init;
+    if (check(TK::KW_VAR)) {
+        init = parseVarDecl(); // handles 'var x = expr;'
+    } else if (check(TK::IDENT) && peek(1).type == TK::ASSIGN) {
+        int iln = peek().line;
+        std::string name = advance().value; // consume IDENT
+        advance();                          // consume '='
+        auto val = parseExpr();
+        expect(TK::SEMICOLON, "Expected ';' after for-init");
+        init = makeAssign(name, std::move(val), iln);
+    } else {
+        throw std::runtime_error(
+            "Expected var declaration or assignment as for-init (line "
+            + std::to_string(peek().line) + ")");
+    }
+
+    // condition clause
+    auto cond = parseExpr();
+    expect(TK::SEMICOLON, "Expected ';' after for-condition");
+
+    // post clause: assignment only, no trailing ';' (ends at ')')
+    int pln = peek().line;
+    std::string postName = expect(TK::IDENT, "Expected assignment in for-post").value;
+    expect(TK::ASSIGN, "Expected '=' in for-post assignment");
+    auto postVal = parseExpr();
+    StmtPtr post = makeAssign(postName, std::move(postVal), pln);
+
+    expect(TK::RPAREN, "Expected ')' after for-post");
+
+    // body
+    auto body = parseBlock();
+
+    // Append post to end of body.
+    body.push_back(std::move(post));
+
+    std::vector<StmtPtr> result;
+    result.push_back(std::move(init));
+    result.push_back(makeWhile(std::move(cond), std::move(body), ln));
+    return result;
+}
+
 StmtPtr Parser::parseReturn() {
     int ln = peek().line;
     advance(); // consume 'return'
@@ -140,7 +194,6 @@ StmtPtr Parser::parsePrint() {
     expect(TK::SEMICOLON, "Expected ';' after print");
     return makePrint(std::move(val), ln);
 }
-
 
 ExprPtr Parser::parseExpr()    { return parseOrExpr(); }
 

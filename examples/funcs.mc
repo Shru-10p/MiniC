@@ -17,9 +17,9 @@ func sumOfSquares(a, b) {
 }
 
 func main() {
-    // Fibonacci sequence: 0 1 1 2 3 5 8 13 21 34
+    // Fibonacci sequence: 0 1 1 2 3 5 8 13
     var i = 0;
-    while (i < 10) {
+    while (i < 8) {
         print(fib(i));
         i = i + 1;
     }

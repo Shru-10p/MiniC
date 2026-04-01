@@ -96,7 +96,6 @@ static void usage(const char* argv0) {
 }
 
 int main(int argc, char** argv) {
-    // Parse CLI
     bool dumpTokens = false;
     bool dumpAst    = false;
     bool emitBC     = false;

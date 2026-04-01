@@ -1,38 +1,59 @@
 # minicc — A Tiny C-Like Compiler via LLVM
 
-A minimal compiler for **MiniC**, a small C-like language, built as a
-learning project.  The compiler translates MiniC source into **LLVM IR**,
+A minimal compiler for **MiniC**, a small C-like language.  The compiler translates MiniC source into **LLVM IR**,
 which you then feed to `clang` or `llc` to get a native binary.
 
 ```None
-source.mc -->  Lexer -->  Parser -->  AST -->  CodeGen --> source.ll
-                                                        │
-                                                   LLVM IRBuilder
-                                                        │
-                                           clang / llc --> native binary
+source.mc ────>  Lexer ────>  Parser ────>  AST ────>  CodeGen ────> source.ll ────LLVM IRBuilder───> clang / llc ────> native binary
 ```
+
+## Table of Contents
+
+- [minicc — A Tiny C-Like Compiler via LLVM](#minicc--a-tiny-c-like-compiler-via-llvm)
+  - [Table of Contents](#table-of-contents)
+  - [Language (MiniC)](#language-minic)
+    - [Examples](#examples)
+    - [Grammar (EBNF)](#grammar-ebnf)
+  - [Prerequisites](#prerequisites)
+    - [Install LLVM](#install-llvm)
+      - [macOS (Homebrew)](#macos-homebrew)
+      - [Ubuntu / Debian](#ubuntu--debian)
+      - [Fedora / RHEL](#fedora--rhel)
+  - [Build](#build)
+  - [Usage](#usage)
+    - [Compile and run an example](#compile-and-run-an-example)
+    - [Debug helpers](#debug-helpers)
+    - [Optimise with `opt`](#optimise-with-opt)
+  - [Architecture](#architecture)
+    - [Lexer (`lexer.hpp / lexer.cpp`)](#lexer-lexerhpp--lexercpp)
+    - [Parser (`parser.hpp / parser.cpp`)](#parser-parserhpp--parsercpp)
+    - [AST (`ast.hpp`)](#ast-asthpp)
+    - [CodeGen (`codegen.hpp / codegen.cpp`)](#codegen-codegenhpp--codegencpp)
+  - [Extending the language](#extending-the-language)
 
 ## Language (MiniC)
 
-| Feature          | Syntax                                     |
-|------------------|--------------------------------------------|
-| Integer variable | `var x = 42;`                              |
-| Assignment       | `x = x + 1;`                               |
-| Arithmetic       | `+ - * / %`  (standard precedence)         |
-| Comparison       | `== != < > <= >=`                          |
-| Logical          | `&& \|\| !`  (short-circuit)               |
-| Conditional      | `if (cond) { … } else { … }`               |
-| Loop             | `while (cond) { … }`                       |
-| Functions        | `func name(a, b) { … }`                    |
-| Return           | `return expr;`                             |
-| Print            | `print(expr);`  -> calls `printf("%d\n")`  |
-| Comments         | `// line`  or  `/* block */`               |
+| Feature          | Syntax                                               |
+|------------------|------------------------------------------------------|
+| Integer variable | `var x = 42;`                                        |
+| Assignment       | `x = x + 1;`                                         |
+| Arithmetic       | `+ - * / %`  (standard precedence)                   |
+| Comparison       | `== != < > <= >=`                                    |
+| Logical          | `&& \|\| !`  (short-circuit)                         |
+| Conditional      | `if (cond) { … } else { … }`                         |
+| While loop       | `while (cond) { … }`                                 |
+| For loop         | `for (init; cond; post) { … }`  (desugars to while)  |
+| Functions        | `func name(a, b) { … }`                              |
+| Return           | `return expr;`                                       |
+| Print            | `print(expr);`  -> calls `printf("%d\n")`            |
+| Comments         | `// line`  or  `/* block */`                         |
 
 All values are **32-bit signed integers** (`i32`).
 
-### Example
+### Examples
 
 ```c
+// Fibonacci with a while loop
 func fib(n) {
     if (n <= 1) { return n; }
     return fib(n - 1) + fib(n - 2);
@@ -47,6 +68,108 @@ func main() {
     return 0;
 }
 ```
+
+```c
+// Sum 1..10 using a for loop --> prints 55
+func main() {
+    var sum = 0;
+    for (var i = 1; i <= 10; i = i + 1) {
+        sum = sum + i;
+    }
+    print(sum);
+}
+```
+
+### Grammar (EBNF)
+
+EBNF conventions:
+
+| Notation | Meaning |
+| -------- | ------- |
+| `=` | rule definition |
+| `;` | end of rule |
+| `"..."` | literal terminal (keyword or punctuation) |
+| `NAME`, `INT` | lexical terminals (identifier / integer literal) |
+| `A , B` | A followed by B (sequencing) |
+| `A \| B` | A or B (choice) |
+| `[ A ]` | A is optional (zero or one) |
+| `{ A }` | zero or more repetitions of A |
+| `( A )` | grouping |
+
+**Grammar:**
+
+```ebnf
+(* -- Top level -- *)
+
+program     = { funcdef }
+
+funcdef     = "func" , NAME , "(" , [ params ] , ")" , block
+params      = NAME , { "," , NAME }
+
+block       = "{" , { stmt } , "}"
+
+(* -- Statements -- *)
+
+stmt        = var-decl
+            | assign
+            | if-stmt
+            | while-stmt
+            | for-stmt
+            | return-stmt
+            | print-stmt
+            | expr-stmt
+
+var-decl    = "var" , NAME , "=" , expr , ";"
+
+assign      = NAME , "=" , expr , ";"
+
+if-stmt     = "if" , "(" , expr , ")" , block ,
+              [ "else" , block ]
+
+while-stmt  = "while" , "(" , expr , ")" , block
+
+for-stmt    = "for" , "(" , for-init , expr , ";" ,
+              NAME , "=" , expr , ")" , block
+
+for-init    = var-decl | assign    (* each includes its trailing ";" *)
+
+return-stmt = "return" , expr , ";"
+
+print-stmt  = "print" , "(" , expr , ")" , ";"
+
+expr-stmt   = expr , ";"
+
+(* -- Expressions (low to high precedence) -- *)
+
+expr        = or-expr
+
+or-expr     = and-expr , { "||" , and-expr }
+
+and-expr    = cmp-expr , { "&&" , cmp-expr }
+
+cmp-expr    = add-expr ,
+              [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) , add-expr ]
+
+add-expr    = mul-expr , { ( "+" | "-" ) , mul-expr }
+
+mul-expr    = unary , { ( "*" | "/" | "%" ) , unary }
+
+unary       = "-" , unary
+            | "!" , unary
+            | primary
+
+primary     = INT
+            | NAME
+            | NAME , "(" , [ args ] , ")"
+            | "(" , expr , ")"
+
+args        = expr , { "," , expr }
+```
+
+> **`for` desugaring** — `for (init; cond; post) { body }` is rewritten by the
+> parser into `init; while (cond) { body; post; }` before the AST is built.
+> Neither the AST nor the code generator has any knowledge of `for`.
+
 
 ## Prerequisites
 
@@ -82,19 +205,19 @@ sudo dnf install llvm-devel
 ## Build
 
 ```bash
-git clone <this-repo>
-cd minicc
-mkdir build && cd build
+git clone https://github.com/Shru-10p/MiniC.git
+cd MiniC
+    mkdir build && cd build
 
-cmake ..
-cmake --build . -j$(nproc)
+    cmake ..
+    cmake --build . -j$(nproc)
 ```
 
 The `minicc` executable will be in `build/`.
 
 ## Usage
 
-```None
+```bash
 minicc [options] <source.mc>
 
   --dump-tokens     Print token stream and exit
@@ -152,13 +275,14 @@ minicc/
 ├── examples/
 │   ├── arith.mc          arithmetic & precedence
 │   ├── cond.mc           if/else, while, logic ops
-│   └── funcs.mc          multi-param fns, recursion
+│   ├── funcs.mc          multi-param fns, recursion
+│   └── forloop.mc        for loop (sum 1–10)
 └── src/
     ├── lexer.hpp / .cpp   Tokeniser
     ├── ast.hpp            AST node structs (header-only)
     ├── parser.hpp / .cpp  Recursive-descent parser
     ├── codegen.hpp / .cpp LLVM IR emitter
-    └── main.cpp           CLI driver + AST printer
+    └── main.cpp
 ```
 
 ### Lexer (`lexer.hpp / lexer.cpp`)
@@ -166,7 +290,7 @@ minicc/
 Single-pass character scanner.  Handles:
 
 - Integer literals, identifiers, keywords
-- All operators including two-character tokens (`==`, `!=`, `<=`, `&&`, …)
+- All operators including two-character tokens (`==`, `!=`, `<=`, `&&`, ...)
 - Line (`//`) and block (`/* */`) comments
 
 ### Parser (`parser.hpp / parser.cpp`)
@@ -203,6 +327,7 @@ Walks the AST and calls `llvm::IRBuilder<>` methods:
 | `&&` / `\|\|` | Short-circuit: conditional branch around RHS evaluation       |
 | `if`/`else`   | `then`, `else`, `ifcont` basic blocks + `br` / `condbr`       |
 | `while`       | `whcond`, `whbody`, `whafter` blocks; back-edge to `whcond`   |
+| `for`         | Desugared to `while` in the parser; no dedicated IR pattern   |
 | `print`       | External `printf` declaration; `CreateGlobalStringPtr("%d\n")`|
 | Functions     | Two-pass: forward-declare all sigs, then emit bodies          |
 
@@ -210,10 +335,11 @@ Walks the AST and calls `llvm::IRBuilder<>` methods:
 
 Possible next steps:
 
-- **Strings** — add a `str` type; lower to `i8*`; extend `print`
-- **Arrays** — `var arr[10];` → `alloca [10 x i32]`; index with GEP
-- **Boolean type** — separate `bool` from `int`; dedicated `i1` storage
-- **For loop** — `for (init; cond; step)` — desugar to `while` in parser
-- **Optimisation pass** — hook `llvm::PassManager`; run `mem2reg` + DCE
-- **Type checker** — walk AST before codegen; catch type errors early
-- **Multiple types** — `int` / `float` — add `FAdd`, `FMul`, LLVM `float`
+- **`break` / `continue`** $-$ jump to `whafter` / `whcond` from inside loops
+- **globals** $-$ `var x = 42;` at top level $\longrightarrow$ `@x = global i32 42`
+- **Strings** $-$ add a `str` type; lower to `i8*`; extend `print`
+- **Arrays** $-$ `var arr[10];` $\longrightarrow$ `alloca [10 x i32]`; index with GEP
+- **Boolean type** $-$ separate `bool` from `int`; dedicated `i1` storage
+- **Optimisation pass** $-$ hook `llvm::PassManager`; run `mem2reg` + DCE
+- **Type checker** $-$ walk AST before codegen; catch type errors early
+- **Multiple types** $-$ `int` / `float` $-$ add `FAdd`, `FMul`, LLVM `float`

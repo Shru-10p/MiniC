@@ -7,7 +7,7 @@ enum class TK {
     // Literals / names
     INT_LIT, IDENT,
     // Keywords
-    KW_FUNC, KW_VAR, KW_IF, KW_ELSE, KW_WHILE, KW_RETURN, KW_PRINT,
+    KW_FUNC, KW_VAR, KW_IF, KW_ELSE, KW_WHILE, KW_FOR, KW_RETURN, KW_PRINT,
     // Arithmetic
     PLUS, MINUS, STAR, SLASH, PERCENT,
     // Relational

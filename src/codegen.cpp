@@ -140,7 +140,7 @@ void CodeGen::genStmt(const Stmt& s) {
         break;
     }
 
-    // if (cond) { … } else { … }
+    // if (cond) { ... } else { ... }
     case StmtKind::If: {
         llvm::Value* condVal = genExpr(*s.cond);
         // Convert i32 → i1 (non-zero is true)
@@ -224,11 +224,11 @@ void CodeGen::genStmt(const Stmt& s) {
 llvm::Value* CodeGen::genExpr(const Expr& e) {
     switch (e.kind) {
 
-    // 42
+    // literal
     case ExprKind::IntLit:
         return constI32(e.intVal);
 
-    // x
+    // variable
     case ExprKind::Var: {
         auto it = varTable_.find(e.name);
         if (it == varTable_.end())
@@ -315,12 +315,12 @@ llvm::Value* CodeGen::genExpr(const Expr& e) {
     case ExprKind::UnaryOp: {
         llvm::Value* v = genExpr(*e.operand);
         if (e.unaryOp == UnaryOp::Neg) return builder_.CreateNeg(v, "neg");
-        // Logical NOT: (v == 0) → 1, else 0
+        // Logical NOT: (v == 0) --> 1, else 0
         auto cmp = builder_.CreateICmpEQ(v, constI32(0), "not");
         return builder_.CreateZExt(cmp, i32());
     }
 
-    // f(args…)
+    // f(args...)
     case ExprKind::Call: {
         auto it = funcTable_.find(e.name);
         if (it == funcTable_.end())
