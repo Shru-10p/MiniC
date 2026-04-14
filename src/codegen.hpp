@@ -50,6 +50,12 @@ private:
     // printf function pointer (declared once, reused by print stmts)
     llvm::Function* printfFn_ = nullptr;
 
+    struct LoopTargets {
+        llvm::BasicBlock* continueBB;
+        llvm::BasicBlock* breakBB;
+    };
+    std::vector<LoopTargets> loopStack_;
+
     llvm::Type* i32();
     llvm::Type* i1();
     llvm::ConstantInt* constI32(int v);

@@ -29,6 +29,8 @@ private:
     StmtPtr              parseIfStmt();
     StmtPtr              parseWhileStmt();
     std::vector<StmtPtr> parseForStmt();   // desugars into init + while
+    StmtPtr              parseBreak();
+    StmtPtr              parseContinue();
     StmtPtr              parseReturn();
     StmtPtr              parsePrint();
 

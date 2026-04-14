@@ -70,6 +70,12 @@ static void printStmt(const Stmt& s, int indent) {
             std::cout << pad << "  Cond:\n"; printExpr(*s.cond, indent + 2);
             std::cout << pad << "  Body:\n"; printStmts(s.loopBody, indent + 2);
             break;
+        case StmtKind::Break:
+            std::cout << pad << "Break\n";
+            break;
+        case StmtKind::Continue:
+            std::cout << pad << "Continue\n";
+            break;
         case StmtKind::Return:
             std::cout << pad << "Return\n"; printExpr(*s.expr, indent + 1); break;
         case StmtKind::Print:

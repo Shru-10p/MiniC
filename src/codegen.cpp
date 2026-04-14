@@ -84,6 +84,7 @@ void CodeGen::genFuncDecls(const Program& prog) {
 void CodeGen::genFuncDef(const FuncDef& fn) {
     llvm::Function* f = funcTable_.at(fn.name);
     varTable_.clear(); // new scope per function
+    loopStack_.clear();
 
     // Entry basic block
     llvm::BasicBlock* entry = llvm::BasicBlock::Create(ctx_, "entry", f);
@@ -188,13 +189,31 @@ void CodeGen::genStmt(const Stmt& s) {
         // body
         fn->insert(fn->end(), bodyBB);
         builder_.SetInsertPoint(bodyBB);
+        loopStack_.push_back({condBB, afterBB});
         genStmts(s.loopBody);
+        loopStack_.pop_back();
         if (!builder_.GetInsertBlock()->getTerminator())
             builder_.CreateBr(condBB); // back-edge
 
         // after
         fn->insert(fn->end(), afterBB);
         builder_.SetInsertPoint(afterBB);
+        break;
+    }
+
+    // break;
+    case StmtKind::Break: {
+        if (loopStack_.empty())
+            throw std::runtime_error("'break' used outside loop at line " + std::to_string(s.line));
+        builder_.CreateBr(loopStack_.back().breakBB);
+        break;
+    }
+
+    // continue;
+    case StmtKind::Continue: {
+        if (loopStack_.empty())
+            throw std::runtime_error("'continue' used outside loop at line " + std::to_string(s.line));
+        builder_.CreateBr(loopStack_.back().continueBB);
         break;
     }
 

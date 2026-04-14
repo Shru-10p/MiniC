@@ -85,7 +85,7 @@ inline ExprPtr makeCall(std::string callee, std::vector<ExprPtr> args, int line 
     return e;
 }
 
-enum class StmtKind { VarDecl, Assign, If, While, Return, Print, ExprStmt };
+enum class StmtKind { VarDecl, Assign, If, While, Break, Continue, Return, Print, ExprStmt };
 
 struct Stmt {
     StmtKind kind;
@@ -137,6 +137,20 @@ inline StmtPtr makeWhile(ExprPtr cond, std::vector<StmtPtr> body, int line = 0) 
     s->kind = StmtKind::While;
     s->cond = std::move(cond);
     s->loopBody = std::move(body);
+    s->line = line;
+    return s;
+}
+
+inline StmtPtr makeBreak(int line = 0) {
+    auto s = std::make_unique<Stmt>();
+    s->kind = StmtKind::Break;
+    s->line = line;
+    return s;
+}
+
+inline StmtPtr makeContinue(int line = 0) {
+    auto s = std::make_unique<Stmt>();
+    s->kind = StmtKind::Continue;
     s->line = line;
     return s;
 }

@@ -77,6 +77,8 @@ StmtPtr Parser::parseStmt() {
         case TK::KW_VAR:    return parseVarDecl();
         case TK::KW_IF:     return parseIfStmt();
         case TK::KW_WHILE:  return parseWhileStmt();
+        case TK::KW_BREAK:  return parseBreak();
+        case TK::KW_CONTINUE: return parseContinue();
         case TK::KW_RETURN: return parseReturn();
         case TK::KW_PRINT:  return parsePrint();
         case TK::IDENT:
@@ -175,6 +177,20 @@ std::vector<StmtPtr> Parser::parseForStmt() {   // desugar 'for' into 'while'
     result.push_back(std::move(init));
     result.push_back(makeWhile(std::move(cond), std::move(body), ln));
     return result;
+}
+
+StmtPtr Parser::parseBreak() {
+    int ln = peek().line;
+    advance(); // consume 'break'
+    expect(TK::SEMICOLON, "Expected ';' after break");
+    return makeBreak(ln);
+}
+
+StmtPtr Parser::parseContinue() {
+    int ln = peek().line;
+    advance(); // consume 'continue'
+    expect(TK::SEMICOLON, "Expected ';' after continue");
+    return makeContinue(ln);
 }
 
 StmtPtr Parser::parseReturn() {

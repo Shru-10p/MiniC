@@ -4,7 +4,6 @@ cmake-build-*/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-Makefile
 compile_commands.json
 
 # Compiler and linker outputs
@@ -27,6 +26,7 @@ a
 arith
 cond
 funcs
+forloop
 minicc
 
 # IDE and OS files

@@ -1,6 +1,6 @@
-# minicc — A Tiny C-Like Compiler via LLVM
+# minicc
 
-A minimal compiler for **MiniC**, a small C-like language.  The compiler translates MiniC source into **LLVM IR**,
+A minimal compiler for **MiniC**, a small C-like language. The compiler translates MiniC source into **LLVM IR**,
 which you then feed to `clang` or `llc` to get a native binary.
 
 ```None
@@ -9,16 +9,14 @@ source.mc ────>  Lexer ────>  Parser ────>  AST ──�
 
 ## Table of Contents
 
-- [minicc — A Tiny C-Like Compiler via LLVM](#minicc--a-tiny-c-like-compiler-via-llvm)
+- [minicc](#minicc)
   - [Table of Contents](#table-of-contents)
   - [Language (MiniC)](#language-minic)
     - [Examples](#examples)
     - [Grammar (EBNF)](#grammar-ebnf)
   - [Prerequisites](#prerequisites)
     - [Install LLVM](#install-llvm)
-      - [macOS (Homebrew)](#macos-homebrew)
       - [Ubuntu / Debian](#ubuntu--debian)
-      - [Fedora / RHEL](#fedora--rhel)
   - [Build](#build)
   - [Usage](#usage)
     - [Compile and run an example](#compile-and-run-an-example)
@@ -29,7 +27,6 @@ source.mc ────>  Lexer ────>  Parser ────>  AST ──�
     - [Parser (`parser.hpp / parser.cpp`)](#parser-parserhpp--parsercpp)
     - [AST (`ast.hpp`)](#ast-asthpp)
     - [CodeGen (`codegen.hpp / codegen.cpp`)](#codegen-codegenhpp--codegencpp)
-  - [Extending the language](#extending-the-language)
 
 ## Language (MiniC)
 
@@ -43,6 +40,7 @@ source.mc ────>  Lexer ────>  Parser ────>  AST ──�
 | Conditional      | `if (cond) { … } else { … }`                         |
 | While loop       | `while (cond) { … }`                                 |
 | For loop         | `for (init; cond; post) { … }`  (desugars to while)  |
+| Loop control     | `break;` / `continue;`                               |
 | Functions        | `func name(a, b) { … }`                              |
 | Return           | `return expr;`                                       |
 | Print            | `print(expr);`  -> calls `printf("%d\n")`            |
@@ -70,10 +68,14 @@ func main() {
 ```
 
 ```c
-// Sum 1..10 using a for loop --> prints 55
+// Sum odd numbers in 1..10 using continue --> prints 25
 func main() {
     var sum = 0;
     for (var i = 1; i <= 10; i = i + 1) {
+        if (i % 2 == 0) {
+            i = i + 1;
+            continue;
+        }
         sum = sum + i;
     }
     print(sum);
@@ -99,7 +101,7 @@ EBNF conventions:
 **Grammar:**
 
 ```ebnf
-(* -- Top level -- *)
+/* -- Top level -- */
 
 program     = { funcdef }
 
@@ -108,13 +110,15 @@ params      = NAME , { "," , NAME }
 
 block       = "{" , { stmt } , "}"
 
-(* -- Statements -- *)
+/* -- Statements -- */
 
 stmt        = var-decl
             | assign
             | if-stmt
             | while-stmt
             | for-stmt
+            | break-stmt
+            | continue-stmt
             | return-stmt
             | print-stmt
             | expr-stmt
@@ -131,7 +135,11 @@ while-stmt  = "while" , "(" , expr , ")" , block
 for-stmt    = "for" , "(" , for-init , expr , ";" ,
               NAME , "=" , expr , ")" , block
 
-for-init    = var-decl | assign    (* each includes its trailing ";" *)
+for-init    = var-decl | assign    /* each includes its trailing ";" */
+
+break-stmt  = "break" , ";"
+
+continue-stmt = "continue" , ";"
 
 return-stmt = "return" , expr , ";"
 
@@ -139,7 +147,7 @@ print-stmt  = "print" , "(" , expr , ")" , ";"
 
 expr-stmt   = expr , ";"
 
-(* -- Expressions (low to high precedence) -- *)
+/* -- Expressions (low to high precedence) -- */
 
 expr        = or-expr
 
@@ -170,24 +178,19 @@ args        = expr , { "," , expr }
 > parser into `init; while (cond) { body; post; }` before the AST is built.
 > Neither the AST nor the code generator has any knowledge of `for`.
 
+> Current limitation: `continue` inside a `for` body jumps to the desugared
+> `while` condition and skips `post`, so examples currently perform explicit
+> increment before `continue`.
 
 ## Prerequisites
 
 | Tool          | Version  | Install                                               |
 |---------------|----------|-------------------------------------------------------|
-| LLVM          | 15 – 18  | see below                                             |
+| LLVM          | 16 – 18  | see below                                             |
 | Clang or GCC  | C++17    | bundled with LLVM, or system package                  |
 | CMake         | >=3.16   | `brew install cmake` / `apt install cmake`            |
 
 ### Install LLVM
-
-#### macOS (Homebrew)
-
-```bash
-brew install llvm
-# Tell CMake where to find it:
-export LLVM_DIR=$(brew --prefix llvm)/lib/cmake/llvm
-```
 
 #### Ubuntu / Debian
 
@@ -196,21 +199,15 @@ sudo apt install llvm-18-dev  # or llvm-15-dev, llvm-16-dev, llvm-17-dev
 # CMake usually finds it automatically via llvm-config-18
 ```
 
-#### Fedora / RHEL
-
-```bash
-sudo dnf install llvm-devel
-```
-
 ## Build
 
 ```bash
 git clone https://github.com/Shru-10p/MiniC.git
 cd MiniC
-    mkdir build && cd build
+mkdir build && cd build
 
-    cmake ..
-    cmake --build . -j$(nproc)
+cmake ..
+cmake --build . -j$(nproc)
 ```
 
 The `minicc` executable will be in `build/`.
@@ -276,7 +273,7 @@ minicc/
 │   ├── arith.mc          arithmetic & precedence
 │   ├── cond.mc           if/else, while, logic ops
 │   ├── funcs.mc          multi-param fns, recursion
-│   └── forloop.mc        for loop (sum 1–10)
+│   └── forloop.mc        for loop + continue example (odd sum)
 └── src/
     ├── lexer.hpp / .cpp   Tokeniser
     ├── ast.hpp            AST node structs (header-only)
@@ -299,13 +296,13 @@ Recursive-descent parser with layered precedence functions:
 
 ```None
 parseExpr
-└──> parseOrExpr
-        └──> parseAndExpr
-                └──> parseCmpExpr
-                        └──> parseAddExpr
-                                └──> parseMulExpr
-                                        └──> parseUnary
-                                                └──> parsePrimary
+   └──> parseOrExpr
+           └──> parseAndExpr
+                   └──> parseCmpExpr
+                           └──> parseAddExpr
+                                   └──> parseMulExpr
+                                           └──> parseUnary
+                                                   └──> parsePrimary
 ```
 
 Produces a tree of `Expr` and `Stmt` nodes (defined in `ast.hpp`).
@@ -327,19 +324,8 @@ Walks the AST and calls `llvm::IRBuilder<>` methods:
 | `&&` / `\|\|` | Short-circuit: conditional branch around RHS evaluation       |
 | `if`/`else`   | `then`, `else`, `ifcont` basic blocks + `br` / `condbr`       |
 | `while`       | `whcond`, `whbody`, `whafter` blocks; back-edge to `whcond`   |
+| `break`       | Branch to nearest loop `whafter` block                        |
+| `continue`    | Branch to nearest loop condition block                        |
 | `for`         | Desugared to `while` in the parser; no dedicated IR pattern   |
 | `print`       | External `printf` declaration; `CreateGlobalStringPtr("%d\n")`|
 | Functions     | Two-pass: forward-declare all sigs, then emit bodies          |
-
-## Extending the language
-
-Possible next steps:
-
-- **`break` / `continue`** $-$ jump to `whafter` / `whcond` from inside loops
-- **globals** $-$ `var x = 42;` at top level $\longrightarrow$ `@x = global i32 42`
-- **Strings** $-$ add a `str` type; lower to `i8*`; extend `print`
-- **Arrays** $-$ `var arr[10];` $\longrightarrow$ `alloca [10 x i32]`; index with GEP
-- **Boolean type** $-$ separate `bool` from `int`; dedicated `i1` storage
-- **Optimisation pass** $-$ hook `llvm::PassManager`; run `mem2reg` + DCE
-- **Type checker** $-$ walk AST before codegen; catch type errors early
-- **Multiple types** $-$ `int` / `float` $-$ add `FAdd`, `FMul`, LLVM `float`
